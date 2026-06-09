@@ -106,6 +106,94 @@ npm start
 
 当前 `package.json` 未配置 `test` 或 `lint` 脚本。
 
+## 服务器部署
+
+项目支持通过 GitHub Actions 自动构建 Docker 镜像并推送到 GitHub Container Registry（GHCR）。镜像内包含后端 API 和前端静态资源，服务器只需要拉取镜像并运行容器。
+
+### 发布镜像
+
+当前发布流程由 `.github/workflows/docker.yml` 控制：
+
+- 推送到 `build` 分支时自动构建并发布镜像。
+- 也可以在 GitHub Actions 页面手动触发发布。
+- 镜像地址格式为：
+
+```text
+ghcr.io/<owner>/<repo>:latest
+ghcr.io/<owner>/<repo>:<commit-sha>
+```
+
+推荐发布流程：
+
+```bash
+git checkout build
+git merge main
+git push origin build
+```
+
+第一次发布成功后，GHCR 会自动创建对应的 package，通常不需要提前手动创建。
+
+### 服务器拉取镜像
+
+如果仓库或 GHCR package 是私有的，服务器需要先登录 GHCR：
+
+```bash
+docker login ghcr.io
+```
+
+用户名使用 GitHub 用户名，密码使用 GitHub Personal Access Token，Token 至少需要 `read:packages` 权限。
+
+拉取镜像：
+
+```bash
+docker pull ghcr.io/<owner>/<repo>:latest
+```
+
+### 运行容器
+
+```bash
+docker run -d \
+  --name sms-code \
+  -p 3000:3000 \
+  -e SECURITY_KEY="replace-with-production-security-key" \
+  -e ADMIN_TOKEN="replace-with-production-admin-token" \
+  -e DATABASE_PATH="/app/data/sms-code.sqlite" \
+  -v sms-code-data:/app/data \
+  ghcr.io/<owner>/<repo>:latest
+```
+
+部署后访问：
+
+```text
+http://<server-ip>:3000
+http://<server-ip>:3000/api/v2/health
+```
+
+### 更新部署
+
+发布新镜像后，在服务器执行：
+
+```bash
+docker pull ghcr.io/<owner>/<repo>:latest
+docker stop sms-code
+docker rm sms-code
+docker run -d \
+  --name sms-code \
+  -p 3000:3000 \
+  -e SECURITY_KEY="replace-with-production-security-key" \
+  -e ADMIN_TOKEN="replace-with-production-admin-token" \
+  -e DATABASE_PATH="/app/data/sms-code.sqlite" \
+  -v sms-code-data:/app/data \
+  ghcr.io/<owner>/<repo>:latest
+```
+
+### 部署注意事项
+
+- `SECURITY_KEY` 和 `ADMIN_TOKEN` 必须在部署时显式配置，不要使用开发默认值。
+- SQLite 数据库必须挂载到 `/app/data`，否则删除容器后会丢失数据。
+- `latest` 适合简单部署；如果需要可回滚部署，建议使用 `<commit-sha>` 标签运行指定版本。
+- 如果 GitHub Actions 推送镜像失败，检查仓库的 Actions 权限是否允许 `packages: write`。
+
 ## 前端页面
 
 - `/redeem`：兑换码接码入口。

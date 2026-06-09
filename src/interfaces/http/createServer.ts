@@ -1,3 +1,4 @@
+import path from "node:path";
 import express from "express";
 import type { AdminProviderOptionUseCase } from "../../application/admin/AdminProviderOptionUseCase.js";
 import type { AdminProviderUseCase } from "../../application/admin/AdminProviderUseCase.js";
@@ -39,6 +40,15 @@ export function createServer(dependencies: ServerDependencies): express.Express 
   app.use("/api/v2", createAdminOptionRoutes(dependencies.adminProviderOptionUseCase));
   app.use("/api/v2", createAdminRedeemCodeRoutes(dependencies.adminRedeemCodeUseCase));
   app.use("/api/v2", createAdminProviderRoutes(dependencies.adminProviderUseCase));
+
+  if (process.env.NODE_ENV === "production") {
+    const webRoot = path.resolve(process.cwd(), "dist-web");
+    app.use(express.static(webRoot));
+    app.get(/^\/(?!api\/).*/, (_request, response) => {
+      response.sendFile(path.join(webRoot, "index.html"));
+    });
+  }
+
   app.use(notFoundHandler);
   app.use(errorMiddleware);
 
