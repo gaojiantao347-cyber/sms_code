@@ -25,8 +25,6 @@ export type AdminProviderItem = {
   enabled: boolean;
   secretConfigured: boolean;
   secretMasked: string | null;
-  defaultServiceCode: string | null;
-  defaultCountryCode: string | null;
   capabilities: AdminProviderCapabilityInput[];
   createdAt: string;
   updatedAt: string;
@@ -43,8 +41,6 @@ export type AdminProviderCreateInput = {
   name: string;
   enabled?: boolean;
   secret?: string | null;
-  defaultServiceCode?: string | null;
-  defaultCountryCode?: string | null;
   capabilities?: AdminProviderCapabilityInput[];
 };
 

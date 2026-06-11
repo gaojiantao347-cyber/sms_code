@@ -10,8 +10,6 @@ export type CreateProviderInput = {
   enabled?: boolean;
   secretEncrypted?: string | null;
   secretMasked?: string | null;
-  defaultServiceCode?: string | null;
-  defaultCountryCode?: string | null;
   capabilities?: Array<{ capabilityCode: ProviderCapability; enabled: boolean }>;
 };
 
@@ -20,8 +18,6 @@ export type UpdateProviderInput = Partial<{
   enabled: boolean;
   secretEncrypted: string | null;
   secretMasked: string | null;
-  defaultServiceCode: string | null;
-  defaultCountryCode: string | null;
 }>;
 
 export type ProviderListFilter = {
@@ -42,8 +38,6 @@ export class ProviderRepository {
       enabled: input.enabled === false ? 0 : 1,
       secret_encrypted: input.secretEncrypted ?? null,
       secret_masked: input.secretMasked ?? null,
-      default_service_code: input.defaultServiceCode ?? null,
-      default_country_code: input.defaultCountryCode ?? null,
       created_at: now,
       updated_at: now,
       deleted: 0,
@@ -52,11 +46,11 @@ export class ProviderRepository {
 
     const insertProvider = this.database.prepare(
       `INSERT INTO provider_config (
-        id, name, enabled, secret_encrypted, secret_masked, default_service_code,
-        default_country_code, created_at, updated_at, deleted, version
+        id, name, enabled, secret_encrypted, secret_masked,
+        created_at, updated_at, deleted, version
       ) VALUES (
-        @id, @name, @enabled, @secret_encrypted, @secret_masked, @default_service_code,
-        @default_country_code, @created_at, @updated_at, @deleted, @version
+        @id, @name, @enabled, @secret_encrypted, @secret_masked,
+        @created_at, @updated_at, @deleted, @version
       )`
     );
 
@@ -124,8 +118,6 @@ export class ProviderRepository {
       enabled: input.enabled === undefined ? undefined : input.enabled ? 1 : 0,
       secret_encrypted: input.secretEncrypted,
       secret_masked: input.secretMasked,
-      default_service_code: input.defaultServiceCode,
-      default_country_code: input.defaultCountryCode,
       updated_at: nowIso(),
       version: record.version + 1
     });

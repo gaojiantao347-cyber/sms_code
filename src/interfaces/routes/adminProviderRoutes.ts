@@ -27,8 +27,6 @@ export function createAdminProviderRoutes(adminProviderUseCase: AdminProviderUse
         name: readString(request.body?.name),
         enabled: typeof request.body?.enabled === "boolean" ? request.body.enabled : undefined,
         secret: readNullableString(request.body?.secret),
-        defaultServiceCode: readNullableString(request.body?.defaultServiceCode),
-        defaultCountryCode: readNullableString(request.body?.defaultCountryCode),
         capabilities: parseCapabilities(request.body?.capabilities)
       });
       response.status(201).json(successResponse(data, getRequestId(request as RequestWithId)));
@@ -43,8 +41,6 @@ export function createAdminProviderRoutes(adminProviderUseCase: AdminProviderUse
         name: readOptionalString(request.body?.name),
         enabled: typeof request.body?.enabled === "boolean" ? request.body.enabled : undefined,
         secret: readOptionalNullableString(request.body?.secret),
-        defaultServiceCode: readOptionalNullableString(request.body?.defaultServiceCode),
-        defaultCountryCode: readOptionalNullableString(request.body?.defaultCountryCode),
         capabilities: request.body?.capabilities === undefined ? undefined : parseCapabilities(request.body.capabilities)
       });
       response.json(successResponse(data, getRequestId(request as RequestWithId)));

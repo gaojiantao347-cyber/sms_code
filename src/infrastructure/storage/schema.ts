@@ -51,8 +51,6 @@ CREATE TABLE IF NOT EXISTS provider_config (
   enabled integer NOT NULL,
   secret_encrypted text,
   secret_masked text,
-  default_service_code text,
-  default_country_code text,
   created_at text NOT NULL,
   updated_at text NOT NULL,
   deleted integer NOT NULL,

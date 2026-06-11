@@ -2,7 +2,9 @@ import { Alert, App, Button, Card, Checkbox, Form, Input, Modal, Select, Space, 
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { adminProviderService } from "../../services/adminProviderService";
+import { adminCatalogService } from "../../services/adminCatalogService";
 import type { AdminProviderCreateInput, AdminProviderItem, AdminProviderListResult, AdminProviderQuery, AdminProviderUpdateInput, ProviderCapability as ProviderCapabilityValue } from "../../types/provider";
+import type { CatalogSyncResult } from "../../types/catalog";
 import { ProviderCapability } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errorMessage";
 import { useAdminAuth } from "./adminAuth";
@@ -22,8 +24,6 @@ type ProviderFormState = {
   name: string;
   enabled: boolean;
   secret?: string;
-  defaultServiceCode?: string;
-  defaultCountryCode?: string;
   capabilities: ProviderCapabilityValue[];
 };
 
@@ -36,8 +36,6 @@ const emptyForm: ProviderFormState = {
   name: "",
   enabled: true,
   secret: "",
-  defaultServiceCode: "",
-  defaultCountryCode: "",
   capabilities: [ProviderCapability.WaitCode]
 };
 
@@ -54,6 +52,7 @@ export function ProviderAdminPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [editingId, setEditingId] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [syncingId, setSyncingId] = useState("");
 
   const query = useMemo<AdminProviderQuery>(() => ({
     nameKeyword: filters.nameKeyword?.trim() || undefined,
@@ -136,6 +135,19 @@ export function ProviderAdminPage() {
     });
   }
 
+  async function handleSync(item: AdminProviderItem) {
+    setSyncingId(item.id);
+    try {
+      const data = await adminCatalogService.sync<CatalogSyncResult>(item.id, adminToken);
+      setErrorMessage("");
+      void message.success(`目录已同步：平台 ${data.platforms} / 国家 ${data.countries}`);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setSyncingId("");
+    }
+  }
+
   function startCreate() {
     setEditingId("");
     editForm.setFieldsValue(emptyForm);
@@ -149,8 +161,6 @@ export function ProviderAdminPage() {
       name: item.name,
       enabled: item.enabled,
       secret: "",
-      defaultServiceCode: item.defaultServiceCode ?? "",
-      defaultCountryCode: item.defaultCountryCode ?? "",
       capabilities: item.capabilities
         .filter((capability) => capability.enabled)
         .map((capability) => capability.capabilityCode)
@@ -170,17 +180,16 @@ export function ProviderAdminPage() {
     { title: "状态", dataIndex: "enabled", width: 90, render: (enabled: boolean) => <Tag color={enabled ? "success" : "default"}>{enabled ? "启用" : "禁用"}</Tag> },
     { title: "Secret", dataIndex: "secretConfigured", width: 110, render: (configured: boolean) => <Tag color={configured ? "processing" : "warning"}>{configured ? "已配置" : "未配置"}</Tag> },
     { title: "能力", dataIndex: "capabilities", width: 300, render: (_, item) => formatCapabilities(item) },
-    { title: "默认服务", dataIndex: "defaultServiceCode", width: 140, render: (value: string | null) => value ?? "-" },
-    { title: "默认地区", dataIndex: "defaultCountryCode", width: 120, render: (value: string | null) => value ?? "-" },
     { title: "创建时间", dataIndex: "createdAt", width: 190 },
     {
       title: "操作",
       key: "action",
       fixed: "right",
-      width: 140,
+      width: 210,
       render: (_, item) => (
         <Space size={4}>
           <Button type="link" size="small" onClick={() => startEdit(item)}>编辑</Button>
+          <Button type="link" size="small" disabled={!item.enabled || syncingId === item.id} loading={syncingId === item.id} onClick={() => handleSync(item)}>同步目录</Button>
           <Button type="link" size="small" danger disabled={!item.enabled || saving} onClick={() => handleDisable(item)}>禁用</Button>
         </Space>
       )
@@ -229,8 +238,6 @@ export function ProviderAdminPage() {
           <Form.Item label="Secret" name="secret">
             <Input.Password placeholder={editingId ? "留空则保留旧 secret" : "Provider secret"} />
           </Form.Item>
-          <Form.Item label="默认服务标识" name="defaultServiceCode"><Input /></Form.Item>
-          <Form.Item label="默认国家或地区代码" name="defaultCountryCode"><Input /></Form.Item>
           <Form.Item label="状态" name="enabled" valuePropName="checked"><Checkbox>启用</Checkbox></Form.Item>
           <Form.Item label="Provider 能力" name="capabilities" rules={[{ required: true, message: "请选择至少一个能力" }]}> 
             <Checkbox.Group options={capabilityOptions.map((capabilityCode) => ({ value: capabilityCode, label: capabilityLabels[capabilityCode] }))} />
@@ -248,7 +255,7 @@ export function ProviderAdminPage() {
           columns={columns}
           dataSource={result?.items ?? []}
           loading={loading}
-          scroll={{ x: 1260 }}
+          scroll={{ x: 1330 }}
           pagination={{
             current: currentPage,
             pageSize,
@@ -281,8 +288,6 @@ function toCreateInput(form: ProviderFormState): AdminProviderCreateInput {
     name: form.name,
     enabled: form.enabled,
     secret: emptyToUndefined(form.secret),
-    defaultServiceCode: emptyToNull(form.defaultServiceCode),
-    defaultCountryCode: emptyToNull(form.defaultCountryCode),
     capabilities: capabilityOptions.map((capabilityCode) => ({ capabilityCode, enabled: form.capabilities.includes(capabilityCode) }))
   };
 }
@@ -301,11 +306,6 @@ function formatCapabilities(item: AdminProviderItem) {
   }
 
   return <Space wrap size={4}>{enabledCapabilities.map((capability) => <Tag key={capability}>{capability}</Tag>)}</Space>;
-}
-
-function emptyToNull(value: string | undefined): string | null {
-  const text = value?.trim() ?? "";
-  return text ? text : null;
 }
 
 function emptyToUndefined(value: string | undefined): string | undefined {

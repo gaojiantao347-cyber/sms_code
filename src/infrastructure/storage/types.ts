@@ -46,8 +46,6 @@ export type ProviderConfigRecord = {
   enabled: number;
   secret_encrypted: string | null;
   secret_masked: string | null;
-  default_service_code: string | null;
-  default_country_code: string | null;
   created_at: string;
   updated_at: string;
   deleted: number;

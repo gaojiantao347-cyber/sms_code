@@ -21,8 +21,6 @@ export type AdminProviderCreateInput = {
   name: string;
   enabled?: boolean;
   secret?: string | null;
-  defaultServiceCode?: string | null;
-  defaultCountryCode?: string | null;
   capabilities?: AdminProviderCapabilityInput[];
 };
 
@@ -34,8 +32,6 @@ export type AdminProviderOutput = {
   enabled: boolean;
   secretConfigured: boolean;
   secretMasked: string | null;
-  defaultServiceCode: string | null;
-  defaultCountryCode: string | null;
   capabilities: Array<{ capabilityCode: ProviderCapability; enabled: boolean }>;
   createdAt: string;
   updatedAt: string;
@@ -72,8 +68,6 @@ export class AdminProviderUseCase {
       enabled: input.enabled,
       secretEncrypted: securedSecret?.secretEncrypted,
       secretMasked: securedSecret?.secretMasked,
-      defaultServiceCode: normalizeNullable(input.defaultServiceCode),
-      defaultCountryCode: normalizeNullable(input.defaultCountryCode),
       capabilities: normalizeCapabilities(input.capabilities)
     });
 
@@ -92,9 +86,7 @@ export class AdminProviderUseCase {
       name: input.name === undefined ? undefined : requireText(input.name, "Provider 名称不能为空"),
       enabled: input.enabled,
       secretEncrypted: securedSecret?.secretEncrypted,
-      secretMasked: securedSecret?.secretMasked,
-      defaultServiceCode: input.defaultServiceCode === undefined ? undefined : normalizeNullable(input.defaultServiceCode),
-      defaultCountryCode: input.defaultCountryCode === undefined ? undefined : normalizeNullable(input.defaultCountryCode)
+      secretMasked: securedSecret?.secretMasked
     });
     if (!updated) {
       throw new SmsError(SmsErrorType.InternalError, "Provider 更新失败", 500);
@@ -126,8 +118,6 @@ export class AdminProviderUseCase {
       enabled: provider.enabled === 1,
       secretConfigured: Boolean(provider.secret_encrypted),
       secretMasked: provider.secret_masked,
-      defaultServiceCode: provider.default_service_code,
-      defaultCountryCode: provider.default_country_code,
       capabilities: this.providers.listCapabilities(provider.id).map(toCapabilityOutput),
       createdAt: provider.created_at,
       updatedAt: provider.updated_at
@@ -168,8 +158,4 @@ function normalizePositiveInteger(value: number | undefined, fallback: number, m
     return fallback;
   }
   return Math.min(value, max);
-}
-
-function normalizeNullable(value: string | null | undefined): string | null {
-  return value?.trim() || null;
 }
