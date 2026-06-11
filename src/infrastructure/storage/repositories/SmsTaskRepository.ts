@@ -17,6 +17,7 @@ export type CreateSmsTaskInput = {
 };
 
 export type UpdateSmsTaskInput = Partial<{
+  providerId: string;
   longTermNumberId: string | null;
   providerOrderId: string | null;
   phoneNumberEncrypted: string | null;
@@ -139,6 +140,7 @@ export class SmsTaskRepository {
     }
 
     return updateById(this.database, "sms_task", id, {
+      provider_id: input.providerId,
       long_term_number_id: input.longTermNumberId,
       provider_order_id: input.providerOrderId,
       phone_number_encrypted: input.phoneNumberEncrypted,

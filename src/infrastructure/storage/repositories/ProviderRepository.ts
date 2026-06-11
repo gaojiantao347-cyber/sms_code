@@ -1,4 +1,5 @@
-import type { ProviderCapability } from "../../../domain/provider/ProviderCapability.js";
+import { ProviderCapability } from "../../../domain/provider/ProviderCapability.js";
+import { SmsMode } from "../../../domain/sms-task/SmsMode.js";
 import type { AppDatabase } from "../database.js";
 import { createId, nowIso } from "../id.js";
 import { updateById } from "../sql.js";
@@ -78,6 +79,25 @@ export class ProviderRepository {
 
   listEnabled(): ProviderConfigRecord[] {
     return this.database.prepare("SELECT * FROM provider_config WHERE enabled = 1 AND deleted = 0 ORDER BY created_at DESC").all() as ProviderConfigRecord[];
+  }
+
+  listEnabledWithCapability(smsMode: SmsMode): ProviderConfigRecord[] {
+    const rentalCapability = smsMode === SmsMode.ShortTerm ? ProviderCapability.ShortTermRental : ProviderCapability.LongTermRental;
+    return this.database
+      .prepare(
+        `SELECT p.* FROM provider_config p
+         WHERE p.enabled = 1 AND p.deleted = 0
+           AND EXISTS (
+             SELECT 1 FROM provider_capability c
+             WHERE c.provider_id = p.id AND c.enabled = 1 AND c.capability_code = @rentalCapability
+           )
+           AND EXISTS (
+             SELECT 1 FROM provider_capability c
+             WHERE c.provider_id = p.id AND c.enabled = 1 AND c.capability_code = @waitCode
+           )
+         ORDER BY p.created_at DESC`
+      )
+      .all({ rentalCapability, waitCode: ProviderCapability.WaitCode }) as ProviderConfigRecord[];
   }
 
   list(filter: ProviderListFilter): ProviderConfigRecord[] {

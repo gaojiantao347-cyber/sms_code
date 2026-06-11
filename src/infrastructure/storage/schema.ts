@@ -8,11 +8,7 @@ CREATE TABLE IF NOT EXISTS redeem_code (
   platform_code text NOT NULL,
   platform_name text NOT NULL,
   sms_mode text NOT NULL,
-  provider_id text NOT NULL,
-  service_code text,
-  country_code text,
-  operator text,
-  max_price text,
+  country_code text NOT NULL,
   max_use_count integer NOT NULL,
   used_count integer NOT NULL,
   expires_at text,
@@ -27,8 +23,27 @@ CREATE TABLE IF NOT EXISTS redeem_code (
 CREATE UNIQUE INDEX IF NOT EXISTS uk_redeem_code_hash ON redeem_code(code_hash) WHERE deleted = 0;
 CREATE INDEX IF NOT EXISTS idx_redeem_code_enabled ON redeem_code(enabled, deleted);
 CREATE INDEX IF NOT EXISTS idx_redeem_code_platform ON redeem_code(platform_code, deleted);
-CREATE INDEX IF NOT EXISTS idx_redeem_code_provider ON redeem_code(provider_id, deleted);
 CREATE INDEX IF NOT EXISTS idx_redeem_code_current_task ON redeem_code(current_task_id);
+
+CREATE TABLE IF NOT EXISTS platform_catalog (
+  code text PRIMARY KEY,
+  name text NOT NULL,
+  enabled integer NOT NULL,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_platform_catalog_enabled ON platform_catalog(enabled);
+
+CREATE TABLE IF NOT EXISTS country_catalog (
+  code text PRIMARY KEY,
+  name text NOT NULL,
+  enabled integer NOT NULL,
+  created_at text NOT NULL,
+  updated_at text NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_country_catalog_enabled ON country_catalog(enabled);
 
 CREATE TABLE IF NOT EXISTS provider_config (
   id text PRIMARY KEY,

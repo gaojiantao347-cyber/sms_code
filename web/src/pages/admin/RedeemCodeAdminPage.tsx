@@ -1,11 +1,9 @@
 import { Alert, App, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { adminOptionService } from "../../services/adminOptionService";
-import { adminProviderService } from "../../services/adminProviderService";
+import { adminCatalogService } from "../../services/adminCatalogService";
 import { adminRedeemCodeService } from "../../services/adminRedeemCodeService";
-import type { ProviderCountryOption, ProviderPriceOption, ProviderServiceOption } from "../../types/adminOption";
-import type { AdminProviderItem, AdminProviderListResult } from "../../types/provider";
+import type { CatalogEntry } from "../../types/catalog";
 import type { AdminRedeemCodeCreateInput, AdminRedeemCodeCreateResult, AdminRedeemCodeItem, AdminRedeemCodeListResult, AdminRedeemCodeQuery, AdminRedeemCodeUpdateInput } from "../../types/redeem";
 import { SmsMode } from "../../types/redeem";
 import { getErrorMessage } from "../../utils/errorMessage";
@@ -22,10 +20,7 @@ type RedeemCodeFormState = {
   enabled: boolean;
   platformCode: string;
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode?: string;
-  countryCode?: string;
-  priceOptionKey?: string;
+  countryCode: string;
   maxUseCount: number;
   expiresAt?: string;
 };
@@ -41,10 +36,7 @@ const emptyForm: RedeemCodeFormState = {
   enabled: true,
   platformCode: "",
   smsMode: SmsMode.ShortTerm,
-  providerId: "",
-  serviceCode: "",
   countryCode: "",
-  priceOptionKey: "",
   maxUseCount: 1,
   expiresAt: ""
 };
@@ -59,12 +51,8 @@ export function RedeemCodeAdminPage() {
   const [result, setResult] = useState<AdminRedeemCodeListResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [providers, setProviders] = useState<AdminProviderItem[]>([]);
-  const [serviceOptions, setServiceOptions] = useState<ProviderServiceOption[]>([]);
-  const [countryOptions, setCountryOptions] = useState<ProviderCountryOption[]>([]);
-  const [priceOptions, setPriceOptions] = useState<ProviderPriceOption[]>([]);
-  const [optionLoading, setOptionLoading] = useState(false);
-  const [priceLoading, setPriceLoading] = useState(false);
+  const [platformOptions, setPlatformOptions] = useState<CatalogEntry[]>([]);
+  const [countryOptions, setCountryOptions] = useState<CatalogEntry[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [editingId, setEditingId] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -93,40 +81,16 @@ export function RedeemCodeAdminPage() {
     }
   }, [adminToken, query]);
 
-  const loadProviders = useCallback(async () => {
+  const loadCatalog = useCallback(async () => {
     try {
-      const providerData = await adminProviderService.list<AdminProviderListResult>("?page=1&pageSize=100", adminToken);
-      setProviders(providerData.items);
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    }
-  }, [adminToken]);
-
-  const loadProviderOptions = useCallback(async (providerId: string) => {
-    if (!providerId) {
-      setServiceOptions([]);
-      setCountryOptions([]);
-      setPriceOptions([]);
-      return;
-    }
-
-    setOptionLoading(true);
-    try {
-      const [services, countries] = await Promise.all([
-        adminOptionService.services<ProviderServiceOption[]>(providerId, adminToken),
-        adminOptionService.countries<ProviderCountryOption[]>(providerId, adminToken)
+      const [platforms, countries] = await Promise.all([
+        adminCatalogService.platforms<CatalogEntry[]>(true, adminToken),
+        adminCatalogService.countries<CatalogEntry[]>(true, adminToken)
       ]);
-      setServiceOptions(services);
+      setPlatformOptions(platforms);
       setCountryOptions(countries);
-      setPriceOptions([]);
-      setErrorMessage("");
     } catch (error) {
-      setServiceOptions([]);
-      setCountryOptions([]);
-      setPriceOptions([]);
       setErrorMessage(getErrorMessage(error));
-    } finally {
-      setOptionLoading(false);
     }
   }, [adminToken]);
 
@@ -139,48 +103,8 @@ export function RedeemCodeAdminPage() {
   }, [loadRedeemCodes]);
 
   useEffect(() => {
-    void loadProviders();
-  }, [loadProviders]);
-
-  const selectedProviderId = Form.useWatch("providerId", editForm);
-  const selectedServiceCode = Form.useWatch("serviceCode", editForm);
-  const selectedCountryCode = Form.useWatch("countryCode", editForm);
-
-  useEffect(() => {
-    if (!selectedProviderId || !selectedServiceCode || !selectedCountryCode) {
-      setPriceOptions([]);
-      editForm.setFieldValue("priceOptionKey", "");
-      return;
-    }
-
-    let ignore = false;
-    setPriceLoading(true);
-    adminOptionService.prices<ProviderPriceOption[]>(selectedProviderId, selectedServiceCode, selectedCountryCode, adminToken)
-      .then((prices) => {
-        if (!ignore) {
-          const currentKey = editForm.getFieldValue("priceOptionKey");
-          const nextKey = prices.some((price) => getPriceOptionKey(price) === currentKey) ? currentKey : prices[0] ? getPriceOptionKey(prices[0]) : "";
-          setPriceOptions(prices);
-          editForm.setFieldValue("priceOptionKey", nextKey);
-        }
-      })
-      .catch((error) => {
-        if (!ignore) {
-          setPriceOptions([]);
-          editForm.setFieldValue("priceOptionKey", "");
-          setErrorMessage(getErrorMessage(error));
-        }
-      })
-      .finally(() => {
-        if (!ignore) {
-          setPriceLoading(false);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [adminToken, editForm, selectedCountryCode, selectedProviderId, selectedServiceCode]);
+    void loadCatalog();
+  }, [loadCatalog]);
 
   function handleFilterSubmit(values: RedeemCodeFilterState) {
     setFilters(values);
@@ -197,8 +121,8 @@ export function RedeemCodeAdminPage() {
     setSaving(true);
     try {
       const saved = editingId
-        ? await adminRedeemCodeService.update<AdminRedeemCodeItem>(editingId, toUpdateInput(values, serviceOptions, priceOptions), adminToken)
-        : await adminRedeemCodeService.create<AdminRedeemCodeCreateResult>(toCreateInput(values, serviceOptions, priceOptions), adminToken);
+        ? await adminRedeemCodeService.update<AdminRedeemCodeItem>(editingId, toUpdateInput(values, platformOptions), adminToken)
+        : await adminRedeemCodeService.create<AdminRedeemCodeCreateResult>(toCreateInput(values, platformOptions), adminToken);
       editForm.setFieldsValue(emptyForm);
       setEditingId("");
       setFormOpen(false);
@@ -238,24 +162,9 @@ export function RedeemCodeAdminPage() {
     });
   }
 
-  function handleProviderChange(providerId: string) {
-    const provider = providers.find((item) => item.id === providerId);
-    editForm.setFieldsValue({
-      providerId,
-      platformCode: "",
-      serviceCode: provider?.defaultServiceCode ?? "",
-      countryCode: provider?.defaultCountryCode ?? "",
-      priceOptionKey: ""
-    });
-    void loadProviderOptions(providerId);
-  }
-
   function startCreate() {
     setEditingId("");
     setCreatedCode("");
-    setServiceOptions([]);
-    setCountryOptions([]);
-    setPriceOptions([]);
     editForm.setFieldsValue(emptyForm);
     setFormOpen(true);
   }
@@ -268,22 +177,15 @@ export function RedeemCodeAdminPage() {
       enabled: item.enabled,
       platformCode: item.platform.code,
       smsMode: item.smsMode,
-      providerId: item.providerId,
-      serviceCode: item.serviceCode ?? item.platform.code,
-      countryCode: item.countryCode ?? "",
-      priceOptionKey: getStoredPriceOptionKey(item.operator, item.maxPrice),
+      countryCode: item.countryCode,
       maxUseCount: item.maxUseCount,
       expiresAt: toDateTimeLocalValue(item.expiresAt)
     });
-    void loadProviderOptions(item.providerId);
   }
 
   function closeForm() {
     setEditingId("");
     setFormOpen(false);
-    setServiceOptions([]);
-    setCountryOptions([]);
-    setPriceOptions([]);
     editForm.setFieldsValue(emptyForm);
   }
 
@@ -313,8 +215,8 @@ export function RedeemCodeAdminPage() {
       render: (_, item) => <span className="mono-text">{item.code ?? item.codeMasked}</span>
     },
     { title: "平台", dataIndex: "platform", width: 180, render: (_, item) => `${item.platform.name}（${item.platform.code}）` },
+    { title: "国家", dataIndex: "countryCode", width: 120, render: (value: string) => <span className="mono-text">{value}</span> },
     { title: "类型", dataIndex: "smsMode", width: 110, render: (value: string) => smsModeLabels[value] ?? value },
-    { title: "Provider", dataIndex: "providerId", width: 180, render: (value: string) => <span className="mono-text">{value}</span> },
     { title: "次数", key: "usage", width: 100, render: (_, item) => `${item.usedCount} / ${item.maxUseCount}` },
     { title: "状态", dataIndex: "enabled", width: 90, render: (enabled: boolean) => <Tag color={enabled ? "success" : "default"}>{enabled ? "启用" : "禁用"}</Tag> },
     { title: "过期时间", dataIndex: "expiresAt", width: 190, render: (value: string | null) => value ?? "-" },
@@ -381,39 +283,29 @@ export function RedeemCodeAdminPage() {
       >
         <Form form={editForm} layout="vertical" onFinish={handleSave} initialValues={emptyForm}>
           <div className="redeem-admin-form-grid">
-            <Form.Item label="Provider" name="providerId" rules={[{ required: true, message: "请选择 Provider" }]}>
-              <Select placeholder="请选择 Provider" style={{ width: "100%" }} onChange={handleProviderChange} options={providers.map((provider) => ({ value: provider.id, label: `${provider.name}${provider.enabled ? "" : "（禁用）"}`, disabled: !provider.enabled }))} />
-            </Form.Item>
-            <Form.Item label="目标平台" name="serviceCode" rules={[{ required: true, message: "请选择目标平台" }]}>
+            <Form.Item label="目标平台" name="platformCode" rules={[{ required: true, message: "请选择目标平台" }]}>
               <Select
                 showSearch
-                loading={optionLoading}
-                disabled={!selectedProviderId}
-                placeholder="请先选择 Provider"
+                placeholder="请选择目标平台"
                 style={{ width: "100%" }}
                 optionFilterProp="label"
-                onChange={(value) => editForm.setFieldsValue({ platformCode: value, priceOptionKey: "" })}
-                options={serviceOptions.map((service) => ({ value: service.code, label: `${service.name}（${service.code}）` }))}
+                options={platformOptions.map((platform) => ({ value: platform.code, label: `${platform.name}（${platform.code}）` }))}
               />
             </Form.Item>
-            <Form.Item label="接码类型" name="smsMode" rules={[{ required: true }]}> 
+            <Form.Item label="国家或地区" name="countryCode" rules={[{ required: true, message: "请选择国家或地区" }]}>
+              <Select
+                showSearch
+                placeholder="请选择国家或地区"
+                style={{ width: "100%" }}
+                optionFilterProp="label"
+                options={countryOptions.map((country) => ({ value: country.code, label: `${country.name}（${country.code}）` }))}
+              />
+            </Form.Item>
+            <Form.Item label="接码类型" name="smsMode" rules={[{ required: true }]}>
               <Select style={{ width: "100%" }} options={[
                 { value: SmsMode.ShortTerm, label: "短期租号" },
                 { value: SmsMode.LongTerm, label: "长期租号" }
               ]} />
-            </Form.Item>
-            <Form.Item name="platformCode" hidden><Input /></Form.Item>
-            <Form.Item label="国家或地区" name="countryCode" rules={[{ required: true, message: "请选择国家或地区" }]}>
-              <Select showSearch loading={optionLoading} allowClear placeholder="请选择国家或地区" style={{ width: "100%" }} optionFilterProp="label" onChange={() => editForm.setFieldValue("priceOptionKey", "")} options={countryOptions.map((country) => ({ value: country.code, label: `${country.name}（${country.code}）` }))} />
-            </Form.Item>
-            <Form.Item label="报价选择" name="priceOptionKey">
-              <Select
-                loading={priceLoading}
-                disabled={!selectedServiceCode || !selectedCountryCode || priceLoading}
-                placeholder={selectedServiceCode && selectedCountryCode ? "请选择报价" : "请选择目标平台和国家"}
-                style={{ width: "100%" }}
-                options={priceOptions.map((price) => ({ value: getPriceOptionKey(price), label: formatPrice(price) }))}
-              />
             </Form.Item>
             <Form.Item label="最大使用次数" name="maxUseCount" rules={[{ required: true, message: "请输入最大使用次数" }]}>
               <InputNumber min={1} style={{ width: "100%" }} />
@@ -445,7 +337,7 @@ export function RedeemCodeAdminPage() {
           columns={columns}
           dataSource={result?.items ?? []}
           loading={loading}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1400 }}
           pagination={{
             current: currentPage,
             pageSize,
@@ -458,21 +350,6 @@ export function RedeemCodeAdminPage() {
       </Card>
     </div>
   );
-}
-
-function formatPrice(price: ProviderPriceOption): string {
-  const amount = price.currency ? `${price.price} ${price.currency}` : price.price;
-  const stock = price.count === null ? "" : `，库存 ${price.count}`;
-  const operator = price.operator ? `，运营商 ${price.operator}` : "";
-  return `${amount}${stock}${operator}`;
-}
-
-function getPriceOptionKey(price: ProviderPriceOption): string {
-  return getStoredPriceOptionKey(price.operator, price.price);
-}
-
-function getStoredPriceOptionKey(operator: string | null, maxPrice: string | null): string {
-  return `${operator ?? ""}::${maxPrice ?? ""}`;
 }
 
 function toQueryString(query: AdminRedeemCodeQuery): string {
@@ -488,33 +365,23 @@ function toQueryString(query: AdminRedeemCodeQuery): string {
   return text ? `?${text}` : "";
 }
 
-function toCreateInput(form: RedeemCodeFormState, serviceOptions: ProviderServiceOption[], priceOptions: ProviderPriceOption[]): AdminRedeemCodeCreateInput {
-  const serviceCode = form.serviceCode?.trim() || form.platformCode;
-  const service = serviceOptions.find((item) => item.code === serviceCode);
-  const selectedPrice = priceOptions.find((item) => getPriceOptionKey(item) === form.priceOptionKey);
+function toCreateInput(form: RedeemCodeFormState, platformOptions: CatalogEntry[]): AdminRedeemCodeCreateInput {
+  const platformCode = form.platformCode.trim();
+  const platform = platformOptions.find((item) => item.code === platformCode);
 
   return {
     enabled: form.enabled,
-    platformCode: serviceCode,
-    platformName: service?.name ?? serviceCode,
+    platformCode,
+    platformName: platform?.name ?? platformCode,
     smsMode: form.smsMode,
-    providerId: form.providerId,
-    serviceCode,
-    countryCode: emptyToNull(form.countryCode),
-    operator: selectedPrice?.operator ?? null,
-    maxPrice: selectedPrice?.price ?? null,
+    countryCode: form.countryCode.trim(),
     maxUseCount: form.maxUseCount,
     expiresAt: toIsoDateTime(form.expiresAt)
   };
 }
 
-function toUpdateInput(form: RedeemCodeFormState, serviceOptions: ProviderServiceOption[], priceOptions: ProviderPriceOption[]): AdminRedeemCodeUpdateInput {
-  return toCreateInput(form, serviceOptions, priceOptions);
-}
-
-function emptyToNull(value: string | undefined): string | null {
-  const text = value?.trim() ?? "";
-  return text ? text : null;
+function toUpdateInput(form: RedeemCodeFormState, platformOptions: CatalogEntry[]): AdminRedeemCodeUpdateInput {
+  return toCreateInput(form, platformOptions);
 }
 
 function toIsoDateTime(value: string | undefined): string | null {

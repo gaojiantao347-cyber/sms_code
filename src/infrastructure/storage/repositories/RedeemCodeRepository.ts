@@ -12,11 +12,7 @@ export type CreateRedeemCodeInput = {
   platformCode: string;
   platformName: string;
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode?: string | null;
-  countryCode?: string | null;
-  operator?: string | null;
-  maxPrice?: string | null;
+  countryCode: string;
   maxUseCount: number;
   expiresAt?: string | null;
 };
@@ -26,11 +22,7 @@ export type UpdateRedeemCodeInput = Partial<{
   platformCode: string;
   platformName: string;
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode: string | null;
-  countryCode: string | null;
-  operator: string | null;
-  maxPrice: string | null;
+  countryCode: string;
   maxUseCount: number;
   expiresAt: string | null;
   currentTaskId: string | null;
@@ -59,11 +51,7 @@ export class RedeemCodeRepository {
       platform_code: input.platformCode,
       platform_name: input.platformName,
       sms_mode: input.smsMode,
-      provider_id: input.providerId,
-      service_code: input.serviceCode ?? null,
-      country_code: input.countryCode ?? null,
-      operator: input.operator ?? null,
-      max_price: input.maxPrice ?? null,
+      country_code: input.countryCode,
       max_use_count: input.maxUseCount,
       used_count: 0,
       expires_at: input.expiresAt ?? null,
@@ -78,12 +66,12 @@ export class RedeemCodeRepository {
     this.database
       .prepare(
         `INSERT INTO redeem_code (
-          id, code_hash, code_encrypted, code_masked, enabled, platform_code, platform_name, sms_mode, provider_id,
-          service_code, country_code, operator, max_price, max_use_count, used_count, expires_at, current_task_id,
+          id, code_hash, code_encrypted, code_masked, enabled, platform_code, platform_name, sms_mode,
+          country_code, max_use_count, used_count, expires_at, current_task_id,
           last_used_at, created_at, updated_at, deleted, version
         ) VALUES (
-          @id, @code_hash, @code_encrypted, @code_masked, @enabled, @platform_code, @platform_name, @sms_mode, @provider_id,
-          @service_code, @country_code, @operator, @max_price, @max_use_count, @used_count, @expires_at, @current_task_id,
+          @id, @code_hash, @code_encrypted, @code_masked, @enabled, @platform_code, @platform_name, @sms_mode,
+          @country_code, @max_use_count, @used_count, @expires_at, @current_task_id,
           @last_used_at, @created_at, @updated_at, @deleted, @version
         )`
       )
@@ -123,11 +111,7 @@ export class RedeemCodeRepository {
       platform_code: input.platformCode,
       platform_name: input.platformName,
       sms_mode: input.smsMode,
-      provider_id: input.providerId,
-      service_code: input.serviceCode,
       country_code: input.countryCode,
-      operator: input.operator,
-      max_price: input.maxPrice,
       max_use_count: input.maxUseCount,
       expires_at: input.expiresAt,
       current_task_id: input.currentTaskId,

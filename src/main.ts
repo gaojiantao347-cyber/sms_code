@@ -1,3 +1,4 @@
+import { AdminCatalogUseCase } from "./application/admin/AdminCatalogUseCase.js";
 import { AdminProviderOptionUseCase } from "./application/admin/AdminProviderOptionUseCase.js";
 import { AdminProviderUseCase } from "./application/admin/AdminProviderUseCase.js";
 import { AdminRedeemCodeUseCase } from "./application/admin/AdminRedeemCodeUseCase.js";
@@ -7,6 +8,7 @@ import { SmsTaskUseCase } from "./application/sms-task/SmsTaskUseCase.js";
 import { loadConfig } from "./infrastructure/config/config.js";
 import { logger } from "./infrastructure/logger/logger.js";
 import { createDatabase } from "./infrastructure/storage/database.js";
+import { CatalogRepository } from "./infrastructure/storage/repositories/CatalogRepository.js";
 import { ProviderRepository } from "./infrastructure/storage/repositories/ProviderRepository.js";
 import { RedeemCodeRepository } from "./infrastructure/storage/repositories/RedeemCodeRepository.js";
 import { SmsTaskRepository } from "./infrastructure/storage/repositories/SmsTaskRepository.js";
@@ -19,6 +21,7 @@ const database = createDatabase(config.databasePath);
 const redeemCodes = new RedeemCodeRepository(database);
 const providers = new ProviderRepository(database);
 const smsTasks = new SmsTaskRepository(database);
+const catalog = new CatalogRepository(database);
 const heroSmsProvider = new HeroSmsProviderAdapter();
 const mockProvider = new MockProviderAdapter();
 const providerAdapters = new Map<string, ProviderAdapter>([
@@ -51,6 +54,12 @@ const adminProviderOptionUseCase = new AdminProviderOptionUseCase({
   providerAdapters,
   securityKey: config.securityKey
 });
+const adminCatalogUseCase = new AdminCatalogUseCase({
+  catalog,
+  providers,
+  providerAdapters,
+  securityKey: config.securityKey
+});
 const app = createServer({
   redeemCodeUseCase,
   smsTaskUseCase,
@@ -58,6 +67,7 @@ const app = createServer({
   adminRedeemCodeUseCase,
   adminProviderUseCase,
   adminProviderOptionUseCase,
+  adminCatalogUseCase,
   adminToken: config.adminToken
 });
 

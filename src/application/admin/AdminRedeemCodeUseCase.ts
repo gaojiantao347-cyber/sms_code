@@ -20,11 +20,7 @@ export type AdminRedeemCodeCreateInput = {
   platformCode: string;
   platformName: string;
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode?: string | null;
-  countryCode?: string | null;
-  operator?: string | null;
-  maxPrice?: string | null;
+  countryCode: string;
   maxUseCount: number;
   expiresAt?: string | null;
 };
@@ -38,11 +34,7 @@ export type AdminRedeemCodeOutput = {
   enabled: boolean;
   platform: { code: string; name: string };
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode: string | null;
-  countryCode: string | null;
-  operator: string | null;
-  maxPrice: string | null;
+  countryCode: string;
   maxUseCount: number;
   usedCount: number;
   expiresAt: string | null;
@@ -87,11 +79,7 @@ export class AdminRedeemCodeUseCase {
       platformCode: requireText(input.platformCode, SmsErrorType.PlatformNotConfigured, "平台编码不能为空"),
       platformName: requireText(input.platformName, SmsErrorType.PlatformNotConfigured, "平台名称不能为空"),
       smsMode: requireSmsMode(input.smsMode),
-      providerId: requireText(input.providerId, SmsErrorType.ProviderNotConfigured, "Provider 不能为空"),
-      serviceCode: normalizeNullable(input.serviceCode),
-      countryCode: normalizeNullable(input.countryCode),
-      operator: normalizeNullable(input.operator),
-      maxPrice: normalizeNullable(input.maxPrice),
+      countryCode: requireText(input.countryCode, SmsErrorType.PlatformNotConfigured, "国家或地区不能为空"),
       maxUseCount: requirePositiveInteger(input.maxUseCount, "最大使用次数无效"),
       expiresAt: normalizeNullable(input.expiresAt)
     });
@@ -109,11 +97,7 @@ export class AdminRedeemCodeUseCase {
       platformCode: input.platformCode === undefined ? undefined : requireText(input.platformCode, SmsErrorType.PlatformNotConfigured, "平台编码不能为空"),
       platformName: input.platformName === undefined ? undefined : requireText(input.platformName, SmsErrorType.PlatformNotConfigured, "平台名称不能为空"),
       smsMode: input.smsMode === undefined ? undefined : requireSmsMode(input.smsMode),
-      providerId: input.providerId === undefined ? undefined : requireText(input.providerId, SmsErrorType.ProviderNotConfigured, "Provider 不能为空"),
-      serviceCode: input.serviceCode === undefined ? undefined : normalizeNullable(input.serviceCode),
-      countryCode: input.countryCode === undefined ? undefined : normalizeNullable(input.countryCode),
-      operator: input.operator === undefined ? undefined : normalizeNullable(input.operator),
-      maxPrice: input.maxPrice === undefined ? undefined : normalizeNullable(input.maxPrice),
+      countryCode: input.countryCode === undefined ? undefined : requireText(input.countryCode, SmsErrorType.PlatformNotConfigured, "国家或地区不能为空"),
       maxUseCount: input.maxUseCount === undefined ? undefined : requirePositiveInteger(input.maxUseCount, "最大使用次数无效"),
       expiresAt: input.expiresAt === undefined ? undefined : normalizeNullable(input.expiresAt)
     });
@@ -153,11 +137,7 @@ function toOutput(record: RedeemCodeRecord, securityKey: string): AdminRedeemCod
     enabled: record.enabled === 1,
     platform: { code: record.platform_code, name: record.platform_name },
     smsMode: record.sms_mode,
-    providerId: record.provider_id,
-    serviceCode: record.service_code,
     countryCode: record.country_code,
-    operator: record.operator,
-    maxPrice: record.max_price,
     maxUseCount: record.max_use_count,
     usedCount: record.used_count,
     expiresAt: record.expires_at,

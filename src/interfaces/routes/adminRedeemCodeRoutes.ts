@@ -30,11 +30,7 @@ export function createAdminRedeemCodeRoutes(adminRedeemCodeUseCase: AdminRedeemC
         platformCode: readString(request.body?.platformCode),
         platformName: readString(request.body?.platformName),
         smsMode: request.body?.smsMode,
-        providerId: readString(request.body?.providerId),
-        serviceCode: readNullableString(request.body?.serviceCode),
-        countryCode: readNullableString(request.body?.countryCode),
-        operator: readNullableString(request.body?.operator),
-        maxPrice: readNullableString(request.body?.maxPrice),
+        countryCode: readString(request.body?.countryCode),
         maxUseCount: Number(request.body?.maxUseCount),
         expiresAt: readNullableString(request.body?.expiresAt)
       });
@@ -51,11 +47,7 @@ export function createAdminRedeemCodeRoutes(adminRedeemCodeUseCase: AdminRedeemC
         platformCode: readOptionalString(request.body?.platformCode),
         platformName: readOptionalString(request.body?.platformName),
         smsMode: request.body?.smsMode,
-        providerId: readOptionalString(request.body?.providerId),
-        serviceCode: readOptionalNullableString(request.body?.serviceCode),
-        countryCode: readOptionalNullableString(request.body?.countryCode),
-        operator: readOptionalNullableString(request.body?.operator),
-        maxPrice: readOptionalNullableString(request.body?.maxPrice),
+        countryCode: readOptionalString(request.body?.countryCode),
         maxUseCount: request.body?.maxUseCount === undefined ? undefined : Number(request.body.maxUseCount),
         expiresAt: readOptionalNullableString(request.body?.expiresAt)
       });

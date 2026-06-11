@@ -33,11 +33,7 @@ export type AdminRedeemCodeItem = {
   enabled: boolean;
   platform: { code: string; name: string };
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode: string | null;
-  countryCode: string | null;
-  operator: string | null;
-  maxPrice: string | null;
+  countryCode: string;
   maxUseCount: number;
   usedCount: number;
   expiresAt: string | null;
@@ -59,11 +55,7 @@ export type AdminRedeemCodeCreateInput = {
   platformCode: string;
   platformName: string;
   smsMode: SmsMode;
-  providerId: string;
-  serviceCode?: string | null;
-  countryCode?: string | null;
-  operator?: string | null;
-  maxPrice?: string | null;
+  countryCode: string;
   maxUseCount: number;
   expiresAt?: string | null;
 };

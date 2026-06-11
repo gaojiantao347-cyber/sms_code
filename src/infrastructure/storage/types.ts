@@ -12,11 +12,7 @@ export type RedeemCodeRecord = {
   platform_code: string;
   platform_name: string;
   sms_mode: SmsMode;
-  provider_id: string;
-  service_code: string | null;
-  country_code: string | null;
-  operator: string | null;
-  max_price: string | null;
+  country_code: string;
   max_use_count: number;
   used_count: number;
   expires_at: string | null;
@@ -26,6 +22,22 @@ export type RedeemCodeRecord = {
   updated_at: string;
   deleted: number;
   version: number;
+};
+
+export type PlatformCatalogRecord = {
+  code: string;
+  name: string;
+  enabled: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CountryCatalogRecord = {
+  code: string;
+  name: string;
+  enabled: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ProviderConfigRecord = {

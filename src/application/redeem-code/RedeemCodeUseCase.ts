@@ -1,11 +1,12 @@
 import { SmsError } from "../../domain/errors/SmsError.js";
 import { SmsErrorType } from "../../domain/errors/SmsErrorType.js";
-import { ProviderCapability } from "../../domain/provider/ProviderCapability.js";
 import { SmsMode } from "../../domain/sms-task/SmsMode.js";
 import { SmsTaskStatus } from "../../domain/sms-task/SmsTaskStatus.js";
+import { logger } from "../../infrastructure/logger/logger.js";
 import { ProviderRepository } from "../../infrastructure/storage/repositories/ProviderRepository.js";
 import { RedeemCodeRepository } from "../../infrastructure/storage/repositories/RedeemCodeRepository.js";
 import { SmsTaskRepository } from "../../infrastructure/storage/repositories/SmsTaskRepository.js";
+import type { ProviderConfigRecord } from "../../infrastructure/storage/types.js";
 import { hashRedeemCode, revealProviderSecret, securePhoneNumber } from "../../infrastructure/security/secureFields.js";
 import type { ProviderAdapter } from "../../providers/index.js";
 
@@ -27,6 +28,13 @@ export type RedeemCodeUseCaseDependencies = {
   smsTasks: SmsTaskRepository;
   providerAdapters: Map<string, ProviderAdapter>;
   securityKey: string;
+};
+
+type PricedCandidate = {
+  provider: ProviderConfigRecord;
+  adapter: ProviderAdapter;
+  secret: string | undefined;
+  price: number | null;
 };
 
 export class RedeemCodeUseCase {
@@ -63,35 +71,22 @@ export class RedeemCodeUseCase {
       throw new SmsError(SmsErrorType.PlatformNotConfigured, "兑换码未配置目标平台");
     }
 
+    if (!redeemCode.country_code) {
+      throw new SmsError(SmsErrorType.PlatformNotConfigured, "兑换码未配置国家或地区");
+    }
+
     if (redeemCode.sms_mode !== SmsMode.ShortTerm && redeemCode.sms_mode !== SmsMode.LongTerm) {
       throw new SmsError(SmsErrorType.SmsModeNotConfigured, "兑换码未配置接码类型");
     }
 
-    const provider = this.dependencies.providers.findById(redeemCode.provider_id);
-    if (!provider) {
-      throw new SmsError(SmsErrorType.ProviderNotConfigured, "接码服务未配置");
-    }
-
-    if (provider.enabled !== 1) {
-      throw new SmsError(SmsErrorType.ProviderUnavailable, "接码服务暂不可用");
-    }
-
-    const requiredCapability = redeemCode.sms_mode === SmsMode.ShortTerm ? ProviderCapability.ShortTermRental : ProviderCapability.LongTermRental;
-    const capabilities = this.dependencies.providers.listCapabilities(provider.id);
-    const supportsMode = capabilities.some((capability) => capability.enabled === 1 && capability.capability_code === requiredCapability);
-    const supportsWaitCode = capabilities.some((capability) => capability.enabled === 1 && capability.capability_code === ProviderCapability.WaitCode);
-    if (!supportsMode || !supportsWaitCode) {
-      throw new SmsError(SmsErrorType.CapabilityNotSupported, "当前接码类型暂不支持");
-    }
-
-    const adapter = this.dependencies.providerAdapters.get(provider.name);
-    if (!adapter) {
-      throw new SmsError(SmsErrorType.ProviderUnavailable, "接码服务暂不可用");
+    const candidates = await this.buildCandidates(redeemCode.sms_mode, redeemCode.platform_code, redeemCode.country_code);
+    if (candidates.length === 0) {
+      throw new SmsError(SmsErrorType.ProviderUnavailable, "当前接码类型暂无可用接码服务");
     }
 
     const task = this.dependencies.smsTasks.create({
       redeemCodeId: redeemCode.id,
-      providerId: provider.id,
+      providerId: candidates[0].provider.id,
       platformCode: redeemCode.platform_code,
       platformName: redeemCode.platform_name,
       smsMode: redeemCode.sms_mode,
@@ -118,36 +113,30 @@ export class RedeemCodeUseCase {
 
     this.dependencies.smsTasks.updateStatus(task.id, SmsTaskStatus.CodeValidated, SmsTaskStatus.NumberAcquiring, task.version);
 
-    const providerResult = await this.acquireNumber(adapter, {
-      providerId: provider.id,
-      providerSecret: provider.secret_encrypted ? revealProviderSecret(provider.secret_encrypted, this.dependencies.securityKey) : undefined,
-      serviceCode: redeemCode.service_code ?? provider.default_service_code ?? undefined,
-      countryCode: redeemCode.country_code ?? provider.default_country_code ?? undefined,
-      operator: redeemCode.operator ?? undefined,
-      maxPrice: redeemCode.max_price ?? undefined
-    }, redeemCode.sms_mode);
+    const acquired = await this.acquireFromCandidates(task.id, candidates, redeemCode.platform_code, redeemCode.country_code, redeemCode.sms_mode);
 
-    if (!providerResult.ok) {
+    if (!acquired) {
       this.dependencies.redeemCodes.release(redeemCode.id);
       this.dependencies.smsTasks.update(task.id, {
         status: SmsTaskStatus.Failed,
-        errorType: providerResult.errorType,
-        errorMessage: providerResult.message,
+        errorType: SmsErrorType.NoAvailableNumber,
+        errorMessage: "所有接码服务暂无可用号码",
         finishedAt: new Date().toISOString()
       });
       this.dependencies.smsTasks.createStatusLog({
         taskId: task.id,
         fromStatus: SmsTaskStatus.NumberAcquiring,
         toStatus: SmsTaskStatus.Failed,
-        errorType: providerResult.errorType,
-        message: providerResult.message
+        errorType: SmsErrorType.NoAvailableNumber,
+        message: "所有接码服务暂无可用号码"
       });
-      throw new SmsError(providerResult.errorType, providerResult.message);
+      throw new SmsError(SmsErrorType.NoAvailableNumber, "所有接码服务暂无可用号码");
     }
 
-    const phone = securePhoneNumber(providerResult.data.phoneNumber, this.dependencies.securityKey);
+    const phone = securePhoneNumber(acquired.data.phoneNumber, this.dependencies.securityKey);
     this.dependencies.smsTasks.update(task.id, {
-      providerOrderId: providerResult.data.providerOrderId,
+      providerId: acquired.candidate.provider.id,
+      providerOrderId: acquired.data.providerOrderId,
       phoneNumberEncrypted: phone.phoneNumberEncrypted,
       phoneNumberMasked: phone.phoneNumberMasked,
       status: SmsTaskStatus.NumberAcquired
@@ -161,11 +150,102 @@ export class RedeemCodeUseCase {
 
     return {
       taskId: task.id,
-      phoneNumber: providerResult.data.phoneNumber,
+      phoneNumber: acquired.data.phoneNumber,
       platformCode: redeemCode.platform_code,
       platformName: redeemCode.platform_name,
       smsMode: redeemCode.sms_mode
     };
+  }
+
+  private async buildCandidates(smsMode: SmsMode, platformCode: string, countryCode: string): Promise<PricedCandidate[]> {
+    const providers = this.dependencies.providers.listEnabledWithCapability(smsMode);
+    const candidates = await Promise.all(
+      providers.map(async (provider) => {
+        const adapter = this.dependencies.providerAdapters.get(provider.name);
+        if (!adapter) {
+          return null;
+        }
+
+        const secret = provider.secret_encrypted ? revealProviderSecret(provider.secret_encrypted, this.dependencies.securityKey) : undefined;
+        const price = await this.lookupLowestPrice(adapter, secret, provider, platformCode, countryCode);
+        return { provider, adapter, secret, price } satisfies PricedCandidate;
+      })
+    );
+
+    return candidates
+      .filter((candidate): candidate is PricedCandidate => candidate !== null)
+      .sort(comparePrice);
+  }
+
+  private async lookupLowestPrice(
+    adapter: ProviderAdapter,
+    secret: string | undefined,
+    provider: ProviderConfigRecord,
+    platformCode: string,
+    countryCode: string
+  ): Promise<number | null> {
+    if (!adapter.listPrices) {
+      return null;
+    }
+
+    const result = await adapter.listPrices({
+      providerId: provider.id,
+      providerSecret: secret,
+      serviceCode: platformCode,
+      countryCode
+    });
+
+    if (!result.ok) {
+      logger.warn("Provider 查价失败，将兜底排序", {
+        provider: provider.name,
+        platformCode,
+        countryCode,
+        errorType: result.errorType,
+        message: result.message
+      });
+      return null;
+    }
+
+    const prices = result.data
+      .map((item) => Number(item.price))
+      .filter((value) => Number.isFinite(value));
+
+    return prices.length > 0 ? Math.min(...prices) : null;
+  }
+
+  private async acquireFromCandidates(
+    taskId: string,
+    candidates: PricedCandidate[],
+    platformCode: string,
+    countryCode: string,
+    smsMode: SmsMode
+  ) {
+    for (const candidate of candidates) {
+      const result = await this.acquireNumber(
+        candidate.adapter,
+        {
+          providerId: candidate.provider.id,
+          providerSecret: candidate.secret,
+          serviceCode: platformCode,
+          countryCode
+        },
+        smsMode
+      );
+
+      if (result.ok) {
+        return { candidate, data: result.data };
+      }
+
+      logger.warn("拿号失败，尝试下一个 Provider", {
+        taskId,
+        provider: candidate.provider.name,
+        price: candidate.price,
+        errorType: result.errorType,
+        message: result.message
+      });
+    }
+
+    return null;
   }
 
   private acquireNumber(
@@ -175,4 +255,17 @@ export class RedeemCodeUseCase {
   ) {
     return smsMode === SmsMode.ShortTerm ? adapter.acquireShortTermNumber(request) : adapter.acquireLongTermNumber(request);
   }
+}
+
+function comparePrice(a: PricedCandidate, b: PricedCandidate): number {
+  if (a.price === null && b.price === null) {
+    return 0;
+  }
+  if (a.price === null) {
+    return 1;
+  }
+  if (b.price === null) {
+    return -1;
+  }
+  return a.price - b.price;
 }

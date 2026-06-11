@@ -1,11 +1,13 @@
 import path from "node:path";
 import express from "express";
+import type { AdminCatalogUseCase } from "../../application/admin/AdminCatalogUseCase.js";
 import type { AdminProviderOptionUseCase } from "../../application/admin/AdminProviderOptionUseCase.js";
 import type { AdminProviderUseCase } from "../../application/admin/AdminProviderUseCase.js";
 import type { AdminRedeemCodeUseCase } from "../../application/admin/AdminRedeemCodeUseCase.js";
 import type { RedeemCodeUseCase } from "../../application/redeem-code/RedeemCodeUseCase.js";
 import type { SmsTaskHistoryUseCase } from "../../application/sms-task/SmsTaskHistoryUseCase.js";
 import type { SmsTaskUseCase } from "../../application/sms-task/SmsTaskUseCase.js";
+import { createAdminCatalogRoutes } from "../routes/adminCatalogRoutes.js";
 import { createAdminOptionRoutes } from "../routes/adminOptionRoutes.js";
 import { createAdminProviderRoutes } from "../routes/adminProviderRoutes.js";
 import { createAdminRedeemCodeRoutes } from "../routes/adminRedeemCodeRoutes.js";
@@ -24,6 +26,7 @@ export type ServerDependencies = {
   adminRedeemCodeUseCase: AdminRedeemCodeUseCase;
   adminProviderUseCase: AdminProviderUseCase;
   adminProviderOptionUseCase: AdminProviderOptionUseCase;
+  adminCatalogUseCase: AdminCatalogUseCase;
   adminToken: string;
 };
 
@@ -38,6 +41,7 @@ export function createServer(dependencies: ServerDependencies): express.Express 
   app.use("/api/v2", createSmsTaskHistoryRoutes(dependencies.smsTaskHistoryUseCase));
   app.use("/api/v2", createAdminAuthMiddleware(dependencies.adminToken));
   app.use("/api/v2", createAdminOptionRoutes(dependencies.adminProviderOptionUseCase));
+  app.use("/api/v2", createAdminCatalogRoutes(dependencies.adminCatalogUseCase));
   app.use("/api/v2", createAdminRedeemCodeRoutes(dependencies.adminRedeemCodeUseCase));
   app.use("/api/v2", createAdminProviderRoutes(dependencies.adminProviderUseCase));
 
