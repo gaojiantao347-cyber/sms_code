@@ -41,6 +41,7 @@ export type CreateStatusLogInput = {
 
 export type SmsTaskHistoryFilter = {
   redeemCodeKeyword?: string;
+  redeemCodeHash?: string;
   platformCode?: string;
   smsMode?: SmsMode;
   status?: SmsTaskStatus;
@@ -243,7 +244,7 @@ export class SmsTaskRepository {
   private historyWhereSql(filter: Partial<SmsTaskHistoryFilter>): string {
     const conditions = ["redeem.deleted = 0"];
     if (filter.redeemCodeKeyword) {
-      conditions.push("redeem.code_masked LIKE @redeemCodeKeyword");
+      conditions.push("(redeem.code_hash = @redeemCodeHash OR redeem.code_masked LIKE @redeemCodeKeyword)");
     }
     if (filter.platformCode) {
       conditions.push("task.platform_code = @platformCode");
@@ -260,6 +261,7 @@ export class SmsTaskRepository {
   private toHistoryQueryParams(filter: SmsTaskHistoryFilter): Record<string, string | number | undefined> {
     return {
       redeemCodeKeyword: filter.redeemCodeKeyword ? `%${filter.redeemCodeKeyword}%` : undefined,
+      redeemCodeHash: filter.redeemCodeHash,
       platformCode: filter.platformCode,
       smsMode: filter.smsMode,
       status: filter.status,

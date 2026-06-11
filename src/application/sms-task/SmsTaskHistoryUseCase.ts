@@ -2,6 +2,7 @@ import { SmsError } from "../../domain/errors/SmsError.js";
 import { SmsErrorType } from "../../domain/errors/SmsErrorType.js";
 import type { SmsMode } from "../../domain/sms-task/SmsMode.js";
 import type { SmsTaskStatus } from "../../domain/sms-task/SmsTaskStatus.js";
+import { hashRedeemCode } from "../../infrastructure/security/secureFields.js";
 import type { SmsTaskHistoryFilter, SmsTaskHistoryRecord, SmsTaskRepository } from "../../infrastructure/storage/repositories/SmsTaskRepository.js";
 import type { SmsTaskStatusLogRecord } from "../../infrastructure/storage/types.js";
 
@@ -94,8 +95,11 @@ export class SmsTaskHistoryUseCase {
   }
 
   private toFilter(input: SmsTaskHistoryListInput): SmsTaskHistoryFilter {
+    const redeemCodeKeyword = input.redeemCodeKeyword?.trim() || undefined;
+
     return {
-      redeemCodeKeyword: input.redeemCodeKeyword?.trim() || undefined,
+      redeemCodeKeyword,
+      redeemCodeHash: redeemCodeKeyword ? hashRedeemCode(redeemCodeKeyword) : undefined,
       platformCode: input.platformCode?.trim() || undefined,
       smsMode: input.smsMode,
       status: input.status,

@@ -192,7 +192,6 @@ export function TaskPage() {
               </Button>
             )}
             {terminalSmsTaskStatuses.has(task.status) && <Button size="large"><Link to="/redeem">继续兑换</Link></Button>}
-            <Button size="large"><Link to="/history">查看历史</Link></Button>
           </Space>
         </aside>
       </section>

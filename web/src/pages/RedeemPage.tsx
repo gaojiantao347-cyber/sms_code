@@ -1,7 +1,7 @@
 import { Alert, Button, Form, Input, Typography } from "antd";
 import type { FormProps } from "antd";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { redeemService } from "../services/redeemService";
 import { getErrorMessage } from "../utils/errorMessage";
 import { HistoryPage } from "./HistoryPage";
@@ -13,6 +13,7 @@ type RedeemFormValues = {
 
 export function RedeemPage() {
   const navigate = useNavigate();
+  const [historyCode, setHistoryCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -23,6 +24,7 @@ export function RedeemPage() {
     setErrorMessage("");
 
     try {
+      setHistoryCode(trimmedCode);
       const result = await redeemService.redeem(trimmedCode);
       navigate(`/tasks/${result.taskId}`);
     } catch (error) {
@@ -42,7 +44,6 @@ export function RedeemPage() {
               <Typography.Title level={3}>创建接码任务</Typography.Title>
               <Typography.Text type="secondary">提交后自动进入任务跟踪页</Typography.Text>
             </div>
-            <Link className="web-text-link" to="/history">查看历史</Link>
           </div>
           <Form layout="vertical" requiredMark={false} onFinish={handleSubmit} autoComplete="off">
             <Form.Item<RedeemFormValues>
@@ -51,7 +52,13 @@ export function RedeemPage() {
               extra="提交后会创建接码任务，并自动进入任务跟踪页。"
               rules={[{ required: true, whitespace: true, message: "请输入兑换码" }]}
             >
-              <Input size="large" placeholder="输入兑换码" disabled={loading} allowClear />
+              <Input
+                size="large"
+                placeholder="输入兑换码"
+                disabled={loading}
+                allowClear
+                onBlur={(event) => setHistoryCode(event.target.value.trim())}
+              />
             </Form.Item>
             {errorMessage && <Alert message={errorMessage} type="error" showIcon className="web-inline-alert" />}
             <Button type="primary" size="large" htmlType="submit" loading={loading} block>
@@ -67,9 +74,8 @@ export function RedeemPage() {
             <Typography.Text className="web-kicker">最近任务</Typography.Text>
             <Typography.Title level={3}>最近接码记录</Typography.Title>
           </div>
-          <Link className="web-text-link" to="/history">打开完整记录</Link>
         </div>
-        <HistoryPage showHero={false} compact />
+        <HistoryPage showHero={false} compact redeemCodeKeyword={historyCode} />
       </section>
     </main>
   );

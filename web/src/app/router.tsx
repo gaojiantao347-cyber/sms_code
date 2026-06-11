@@ -5,7 +5,6 @@ import { AdminHomePage } from "../pages/admin/AdminHomePage";
 import { ProviderAdminPage } from "../pages/admin/ProviderAdminPage";
 import { RedeemCodeAdminPage } from "../pages/admin/RedeemCodeAdminPage";
 import { HistoryDetailPage } from "../pages/HistoryDetailPage";
-import { HistoryPage } from "../pages/HistoryPage";
 import { RedeemPage } from "../pages/RedeemPage";
 import { TaskPage } from "../pages/TaskPage";
 
@@ -18,7 +17,7 @@ export const router = createBrowserRouter([
       { path: "redeem", element: <RedeemPage /> },
       { path: "redeem/:template", element: <Navigate to="/redeem" replace /> },
       { path: "tasks/:taskId", element: <TaskPage /> },
-      { path: "history", element: <HistoryPage /> },
+      { path: "history", element: <Navigate to="/redeem" replace /> },
       { path: "history/:taskId", element: <HistoryDetailPage /> }
     ]
   },

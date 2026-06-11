@@ -70,7 +70,7 @@ export function HistoryDetailPage() {
           status="warning"
           title="历史详情不可用"
           subTitle={errorMessage || "任务 ID 不存在或记录已不可访问。"}
-          extra={<Button type="primary"><Link to="/history">返回历史列表</Link></Button>}
+          extra={<Button type="primary"><Link to="/redeem">返回接码首页</Link></Button>}
         />
       </div>
     );
@@ -80,7 +80,7 @@ export function HistoryDetailPage() {
     <div className={`web-detail-page ${getUserStyleClass()}`}>
       <section className="web-detail-hero">
         <div>
-          <Link className="web-text-link" to="/history">返回历史</Link>
+          <Link className="web-text-link" to="/redeem">返回接码首页</Link>
           <Typography.Text className="web-kicker">Record Detail</Typography.Text>
           <Typography.Title level={1}>{detail.platform.name}</Typography.Title>
           <Typography.Paragraph>任务 ID：<span className="mono-text">{detail.taskId}</span></Typography.Paragraph>

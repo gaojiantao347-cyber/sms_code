@@ -39,9 +39,10 @@ type HistoryFilterValues = {
 type HistoryPageProps = {
   showHero?: boolean;
   compact?: boolean;
+  redeemCodeKeyword?: string;
 };
 
-export function HistoryPage({ showHero = true, compact = false }: HistoryPageProps) {
+export function HistoryPage({ showHero = true, compact = false, redeemCodeKeyword }: HistoryPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [form] = Form.useForm<HistoryFilterValues>();
   const [result, setResult] = useState<HistoryListResult | null>(null);
@@ -49,15 +50,22 @@ export function HistoryPage({ showHero = true, compact = false }: HistoryPagePro
   const [errorMessage, setErrorMessage] = useState("");
 
   const query = useMemo<HistoryQuery>(() => ({
-    redeemCodeKeyword: compact ? undefined : searchParams.get("redeemCodeKeyword") ?? undefined,
+    redeemCodeKeyword: compact ? redeemCodeKeyword?.trim() || undefined : searchParams.get("redeemCodeKeyword") ?? undefined,
     platformCode: compact ? undefined : searchParams.get("platformCode") ?? undefined,
     smsMode: compact ? undefined : (searchParams.get("smsMode") as HistoryQuery["smsMode"]) ?? undefined,
     status: compact ? undefined : (searchParams.get("status") as HistoryQuery["status"]) ?? undefined,
     page: compact ? 1 : Number(searchParams.get("page") ?? 1),
     pageSize: compact ? compactPageSize : pageSize
-  }), [compact, searchParams]);
+  }), [compact, redeemCodeKeyword, searchParams]);
 
   const loadHistory = useCallback(async () => {
+    if (compact && !query.redeemCodeKeyword) {
+      setResult(null);
+      setErrorMessage("");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await historyService.list(query);
@@ -68,7 +76,7 @@ export function HistoryPage({ showHero = true, compact = false }: HistoryPagePro
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [compact, query]);
 
   useEffect(() => {
     if (compact) {
@@ -164,7 +172,7 @@ export function HistoryPage({ showHero = true, compact = false }: HistoryPagePro
           items.map((item) => <HistoryListItem key={item.taskId} item={item} />)
         ) : (
           <div className="web-empty-state">
-            <Empty description="暂无接码记录" />
+            <Empty description={compact && !query.redeemCodeKeyword ? "输入兑换码后查看对应记录" : "暂无接码记录"} />
             {!compact && <Button type="primary"><Link to="/redeem">去兑换</Link></Button>}
           </div>
         )}
