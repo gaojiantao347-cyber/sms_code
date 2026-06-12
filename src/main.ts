@@ -48,7 +48,7 @@ const smsTaskUseCase = new SmsTaskUseCase({
 });
 const smsTaskHistoryUseCase = new SmsTaskHistoryUseCase({ smsTasks });
 const adminRedeemCodeUseCase = new AdminRedeemCodeUseCase(redeemCodes, config.securityKey);
-const adminProviderUseCase = new AdminProviderUseCase(providers, config.securityKey);
+const adminProviderUseCase = new AdminProviderUseCase(providers, config.securityKey, providerAdapters);
 const adminProviderOptionUseCase = new AdminProviderOptionUseCase({
   providers,
   providerAdapters,

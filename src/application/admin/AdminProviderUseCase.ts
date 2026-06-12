@@ -4,6 +4,7 @@ import { ProviderCapability } from "../../domain/provider/ProviderCapability.js"
 import { secureProviderSecret } from "../../infrastructure/security/secureFields.js";
 import type { ProviderListFilter, ProviderRepository } from "../../infrastructure/storage/repositories/ProviderRepository.js";
 import type { ProviderCapabilityRecord, ProviderConfigRecord } from "../../infrastructure/storage/types.js";
+import type { ProviderAdapter } from "../../providers/index.js";
 
 export type AdminProviderListInput = {
   nameKeyword?: string;
@@ -44,10 +45,16 @@ export type AdminProviderListOutput = {
   total: number;
 };
 
+export type AdminProviderAdapterOptionOutput = {
+  code: string;
+  supportsCatalogSync: boolean;
+};
+
 export class AdminProviderUseCase {
   constructor(
     private readonly providers: ProviderRepository,
-    private readonly securityKey: string
+    private readonly securityKey: string,
+    private readonly providerAdapters: Map<string, ProviderAdapter>
   ) {}
 
   list(input: AdminProviderListInput): AdminProviderListOutput {
@@ -58,6 +65,15 @@ export class AdminProviderUseCase {
       pageSize: filter.pageSize,
       total: this.providers.count(filter)
     };
+  }
+
+  listAdapterOptions(): AdminProviderAdapterOptionOutput[] {
+    return Array.from(this.providerAdapters.values())
+      .map((adapter) => ({
+        code: adapter.providerCode,
+        supportsCatalogSync: Boolean(adapter.listServices && adapter.listCountries)
+      }))
+      .sort((left, right) => left.code.localeCompare(right.code));
   }
 
   create(input: AdminProviderCreateInput): AdminProviderOutput {

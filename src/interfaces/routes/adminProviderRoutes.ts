@@ -7,6 +7,15 @@ import { getRequestId, type RequestWithId } from "../http/requestContext.js";
 export function createAdminProviderRoutes(adminProviderUseCase: AdminProviderUseCase): Router {
   const router = Router();
 
+  router.get("/admin/providers/adapter-options", (request, response, next) => {
+    try {
+      const data = adminProviderUseCase.listAdapterOptions();
+      response.json(successResponse(data, getRequestId(request as RequestWithId)));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/admin/providers", (request, response, next) => {
     try {
       const data = adminProviderUseCase.list({

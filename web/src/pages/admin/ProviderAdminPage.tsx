@@ -3,7 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { adminProviderService } from "../../services/adminProviderService";
 import { adminCatalogService } from "../../services/adminCatalogService";
-import type { AdminProviderCreateInput, AdminProviderItem, AdminProviderListResult, AdminProviderQuery, AdminProviderUpdateInput, ProviderCapability as ProviderCapabilityValue } from "../../types/provider";
+import type { AdminProviderAdapterOption, AdminProviderCreateInput, AdminProviderItem, AdminProviderListResult, AdminProviderQuery, AdminProviderUpdateInput, ProviderCapability as ProviderCapabilityValue } from "../../types/provider";
 import type { CatalogSyncResult } from "../../types/catalog";
 import { ProviderCapability } from "../../types/provider";
 import { getErrorMessage } from "../../utils/errorMessage";
@@ -47,6 +47,7 @@ export function ProviderAdminPage() {
   const [filters, setFilters] = useState<ProviderFilterState>({});
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<AdminProviderListResult | null>(null);
+  const [adapterOptions, setAdapterOptions] = useState<AdminProviderAdapterOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -74,6 +75,15 @@ export function ProviderAdminPage() {
     }
   }, [adminToken, query]);
 
+  const loadAdapterOptions = useCallback(async () => {
+    try {
+      const data = await adminProviderService.listAdapterOptions<AdminProviderAdapterOption[]>(adminToken);
+      setAdapterOptions(data);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    }
+  }, [adminToken]);
+
   useEffect(() => {
     editForm.setFieldsValue(emptyForm);
   }, [editForm]);
@@ -81,6 +91,10 @@ export function ProviderAdminPage() {
   useEffect(() => {
     void loadProviders();
   }, [loadProviders]);
+
+  useEffect(() => {
+    void loadAdapterOptions();
+  }, [loadAdapterOptions]);
 
   function handleFilterSubmit(values: ProviderFilterState) {
     setFilters(values);
@@ -174,6 +188,10 @@ export function ProviderAdminPage() {
   }
 
   const currentPage = result?.page ?? page;
+  const adapterOptionMap = useMemo(
+    () => new Map(adapterOptions.map((option) => [option.code, option])),
+    [adapterOptions]
+  );
 
   const columns: ColumnsType<AdminProviderItem> = [
     { title: "名称", dataIndex: "name", fixed: "left", width: 180, render: (value: string) => <Typography.Text strong>{value}</Typography.Text> },
@@ -189,7 +207,7 @@ export function ProviderAdminPage() {
       render: (_, item) => (
         <Space size={4}>
           <Button type="link" size="small" onClick={() => startEdit(item)}>编辑</Button>
-          <Button type="link" size="small" disabled={!item.enabled || syncingId === item.id} loading={syncingId === item.id} onClick={() => handleSync(item)}>同步目录</Button>
+          <Button type="link" size="small" disabled={!item.enabled || !adapterOptionMap.get(item.name)?.supportsCatalogSync || syncingId === item.id} loading={syncingId === item.id} onClick={() => handleSync(item)}>同步目录</Button>
           <Button type="link" size="small" danger disabled={!item.enabled || saving} onClick={() => handleDisable(item)}>禁用</Button>
         </Space>
       )
@@ -232,8 +250,13 @@ export function ProviderAdminPage() {
         destroyOnHidden
       >
         <Form form={editForm} layout="vertical" onFinish={handleSave} initialValues={emptyForm}>
-          <Form.Item label="Provider 名称" name="name" rules={[{ required: true, whitespace: true, message: "请输入 Provider 名称" }]}> 
-            <Input />
+          <Form.Item label="Provider 名称" name="name" rules={[{ required: true, message: "请选择 Provider 名称" }]}> 
+            <Select
+              options={adapterOptions.map((option) => ({
+                value: option.code,
+                label: option.code
+              }))}
+            />
           </Form.Item>
           <Form.Item label="Secret" name="secret">
             <Input.Password placeholder={editingId ? "留空则保留旧 secret" : "Provider secret"} />

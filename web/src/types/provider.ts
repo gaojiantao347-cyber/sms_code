@@ -37,6 +37,11 @@ export type AdminProviderListResult = {
   total: number;
 };
 
+export type AdminProviderAdapterOption = {
+  code: string;
+  supportsCatalogSync: boolean;
+};
+
 export type AdminProviderCreateInput = {
   name: string;
   enabled?: boolean;

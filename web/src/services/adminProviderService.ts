@@ -4,6 +4,9 @@ export const adminProviderService = {
   list<T>(query = "", adminToken: string) {
     return httpClient<T>(`/admin/providers${query}`, { headers: authHeaders(adminToken) });
   },
+  listAdapterOptions<T>(adminToken: string) {
+    return httpClient<T>("/admin/providers/adapter-options", { headers: authHeaders(adminToken) });
+  },
   create<T>(body: unknown, adminToken: string) {
     return httpClient<T>("/admin/providers", { method: "POST", body, headers: authHeaders(adminToken) });
   },
